@@ -1,0 +1,128 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Template to launch bachelor snow stake app
+Parameters:
+  snowStakeImageURI:
+    Description: URL of the image we want to monitor
+    Type: String
+    Default: "https://www.mtbachelor.com/webcams/snowstake.jpg"
+  stackName:
+    Description: Name of this stack/app
+    Type: String
+  bucketName:
+    Description: Name of the bucket to put images
+    Type: String
+Resources:
+  SnowStakeBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Join ["", [ !Ref stackName, "-", !Ref bucketName]]
+      AccessControl: Private
+      NotificationConfiguration:
+        LambdaConfigurations:
+          Event: s3:ObjectCreated:Put
+          Function: !Ref ProcessLambda
+      LifecycleConfiguration:
+        Rules:
+            Status: Enabled
+      Tags:
+        - Key: project
+          value: !Ref stackName
+  FetchLambda:
+    Type: AWS::Lambda::Function
+    Properties: 
+      Code:
+        Code
+      Description: Fetch the image from the resort website
+      Environment:
+        Variables:
+          IMAGE_URL: !Ref snowStakeImageURI
+      FunctionName: fetchImage
+      Handler: fetch.handler
+      MemorySize: 10
+      Role: !Ref LambdaRole
+      Runtime: nodejs8.10
+      Timeout: 30
+      Tags: 
+        - Key: project
+          Value: !Ref stackName
+  ProcessLambda:
+    Type: AWS::Lambda::Function
+    Properties: 
+      Code:
+        Code
+      Description: Process the image using Rekognition
+      Environment:
+        - !Ref snowStakeImageURI
+      FunctionName: fetchImage
+      Handler: fetch.handler
+      MemorySize: 10
+      Role: !Ref LambdaRole
+      Runtime: nodejs8.10
+      Timeout: 30
+      Tags: 
+        - Key: project
+          Value: !Ref stackName
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - 
+            Effect: Allow
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+              Action:
+                - "sts:AssumeRole"
+        Path: "/"
+        Policies:
+          - PolicyName: "s3RW"
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                Effect: "Allow"
+                Action:
+                  - s3:PutObject
+                    s3:GetObject
+                Resource: !Ref SnowStakeBucket
+          - PolicyName: "rekognition"
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                Effect: "Allow"
+                Action:
+                  - rekognition:DetectText
+                Resource: "*"
+          - PolicyName: "ses"
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                Effect: "Allow"
+                Action:
+                  - ses:*
+                Resource: "*"
+          - PolicyName: "cloudwatchLogs"
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                Effect: "Allow"
+                Action:
+                  - logs:*
+                Resource: "*"
+          - PolicyName: "cloudwatchEvents"
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                Effect: "Allow"
+                Action:
+                  - events:*
+                Resource: "*"
+  InitiateEvent:                
+    Type: AWS::Events::Rule
+    Properties: 
+      Description: Triggers the process
+      Name: FetchImageEvent
+      ScheduleExpression: 0 6 * * * 2-6 *
+      Targets:
+        - !Ref FetchLambda
