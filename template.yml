@@ -11,6 +11,26 @@ Parameters:
   bucketName:
     Description: Name of the bucket to put images
     Type: String
+  emailRecipients:
+    Description: Email address of the person you want to email and tell that you will be out sick
+    Type: String
+  fromAddress:
+    Description: Your email address, must be verified in SES
+    Type: String
+  sickExcuse:
+      Description: The email body of your out sick email
+      Type: String
+      Default: "Sorry to inform you but I am feeling a bit under the weather today and will be out of the office. It has nothing to do with all the new snow"      
+  sickSubject:
+    Description: The email subject of your out sick email
+    Type: String
+    Default: I am feeling a bit under the weather today.
+  enabled:
+    Description: Turn the app on/off
+    Type: String    
+    AllowedValues:
+      - Enabled
+      - Disabled
 Resources:
   SnowStakeBucket:
     Type: AWS::S3::Bucket
@@ -36,6 +56,7 @@ Resources:
       Environment:
         Variables:
           IMAGE_URL: !Ref snowStakeImageURI
+          BUCKET_NAME: !Ref SnowStakeBucket
       FunctionName: fetchImage
       Handler: fetch.handler
       MemorySize: 10
@@ -52,7 +73,13 @@ Resources:
         Code
       Description: Process the image using Rekognition
       Environment:
-        - !Ref snowStakeImageURI
+        Variables:
+          RECIPIENT_EMAIL: !Ref emailRecipients
+          BUCKET_NAME: !Ref snowStakeBucket
+          FROM_ADDRESS: !Ref fromAddress
+          TO_ADDRESS: !Ref emailRecipients
+          SICK_SUBJECT: !Ref sickSubject
+          SICK_EXCUSE: !Ref sickExcuse
       FunctionName: fetchImage
       Handler: fetch.handler
       MemorySize: 10
@@ -124,5 +151,6 @@ Resources:
       Description: Triggers the process
       Name: FetchImageEvent
       ScheduleExpression: 0 6 * * * 2-6 *
+      State: !Ref enabled
       Targets:
         - !Ref FetchLambda
